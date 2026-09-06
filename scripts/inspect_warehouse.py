@@ -81,7 +81,7 @@ def inspect():
     print("DATA FILES LOCATION ON DISK:")
     print(f"   * DuckDB Warehouse: {os.path.abspath(WAREHOUSE_PATH)}")
     print(f"   * Raw CDC Events  : {os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'cdc_events'))}")
-    print(f"   * SQLite OLTP DB  : {os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'source_oltp.db'))}")
+    print(f"   * OLTP Source DB  : {os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'source_oltp.db'))} (PostgreSQL schema)")
     print("=" * 80 + "\n")
 
 if __name__ == "__main__":
