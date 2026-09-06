@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.venv/
+env/
+venv/
+
+# dbt
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+
+# Great Expectations
+great_expectations/uncommitted/
+
+# Data storage & local databases
+data/warehouse/*.duckdb
+data/warehouse/*.duckdb.wal
+data/warehouse/*.duckdb.tmp
+*.duckdb
+*.duckdb.wal
+*.db
+data/source_oltp.db
+data/cdc_events/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store

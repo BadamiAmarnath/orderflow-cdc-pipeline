@@ -1,0 +1,7 @@
+orderflow_duckdb:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: 'data/warehouse/orderflow.duckdb'
+      threads: 1

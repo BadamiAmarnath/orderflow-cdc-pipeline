@@ -1,0 +1,21 @@
+{
+  "name": "orderflow-postgres-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    "plugin.name": "pgoutput",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "postgres",
+    "database.password": "postgrespassword",
+    "database.dbname": "orderflow_oltp",
+    "database.server.name": "orderflow",
+    "table.include.list": "public.customers,public.products,public.orders,public.order_items,public.inventory",
+    "tombstones.on.delete": "false",
+    "decimal.handling.mode": "double",
+    "time.precision.mode": "connect",
+    "database.history.kafka.bootstrap.servers": "kafka:29092",
+    "database.history.kafka.topic": "schema-changes.orderflow",
+    "topic.prefix": "orderflow_cdc"
+  }
+}

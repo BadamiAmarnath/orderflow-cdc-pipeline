@@ -1,0 +1,36 @@
+{
+  "expectation_suite_name": "orderflow_source_suite",
+  "meta": {
+    "great_expectations_version": "1.0.0"
+  },
+  "expectations": [
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "table": "products", "column": "product_id" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": { "table": "products", "column": "price", "min_value": 0.01 }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "table": "customers", "column": "customer_id" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "table": "orders", "column": "order_id" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "table": "orders",
+        "column": "status",
+        "value_set": ["pending", "shipped", "delivered", "cancelled"]
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": { "table": "inventory", "column": "stock_level", "min_value": 0 }
+    }
+  ]
+}
