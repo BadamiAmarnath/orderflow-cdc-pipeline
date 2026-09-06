@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OrderFlow CDC Pipeline | Analytical Telemetry & SCD-2 Dashboard</title>
+    <style>
+        :root {
+            --bg-base: #080C14;
+            --bg-card: #0F172A;
+            --bg-card-hover: #131E35;
+            --bg-subtle: #1E293B;
+            --border-color: #1E293B;
+            --border-highlight: #334155;
+            
+            --text-primary: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            
+            --cyan: #06B6D4;
+            --cyan-glow: rgba(6, 182, 212, 0.15);
+            --emerald: #10B981;
+            --emerald-glow: rgba(16, 185, 129, 0.15);
+            --amber: #F59E0B;
+            --amber-glow: rgba(245, 158, 11, 0.15);
+            --indigo: #6366F1;
+            --indigo-glow: rgba(99, 102, 241, 0.15);
+            --rose: #F43F5E;
+            --purple: #8B5CF6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.08) 0px, transparent 50%);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", sans-serif;
+            min-height: 100vh;
+            padding: 24px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .dashboard-container {
+            max-width: 1360px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.6));
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 24px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .brand-section {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .brand-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--cyan), var(--indigo));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 16px;
+            color: #fff;
+            box-shadow: 0 0 16px rgba(6, 182, 212, 0.4);
+        }
+
+        .brand-title {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+        }
+
+        .brand-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            letter-spacing: 0.01em;
+        }
+
+        .header-badges {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: "JetBrains Mono", monospace;
+            border: 1px solid;
+        }
+
+        .badge-verified {
+            background: var(--emerald-glow);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: #34D399;
+        }
+
+        .badge-timestamp {
+            background: var(--bg-subtle);
+            border-color: var(--border-highlight);
+            color: var(--cyan);
+        }
+
+        .badge-engine {
+            background: var(--indigo-glow);
+            border-color: rgba(99, 102, 241, 0.4);
+            color: #A5B4FC;
+        }
+
+        .dot-pulse {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background-color: var(--emerald);
+            box-shadow: 0 0 8px var(--emerald);
+        }
+
+        /* KPI Cards Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .kpi-card:hover {
+            border-color: var(--border-highlight);
+            transform: translateY(-2px);
+        }
+
+        .kpi-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--card-accent, var(--cyan));
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-primary);
+            font-family: "JetBrains Mono", monospace;
+            letter-spacing: -0.03em;
+        }
+
+        .kpi-subtext {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Section Containers */
+        .section-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 14px;
+        }
+
+        .section-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-pill {
+            background: var(--cyan-glow);
+            color: var(--cyan);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: "JetBrains Mono", monospace;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .section-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* Distinctive Proof Point: SCD Type 2 Grid */
+        .scd2-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .scd2-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .scd2-card {
+            background: #0B1120;
+            border: 1px solid var(--border-highlight);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .scd2-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .scd2-badge {
+            background: var(--bg-subtle);
+            color: var(--cyan);
+            font-family: "JetBrains Mono", monospace;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+
+        .scd2-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .scd2-category {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .scd2-timeline {
+            display: flex;
+            align-items: stretch;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .scd2-version {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid;
+        }
+
+        .scd2-version.closed {
+            background: rgba(148, 163, 184, 0.04);
+            border-color: rgba(148, 163, 184, 0.2);
+        }
+
+        .scd2-version.active {
+            background: rgba(16, 185, 129, 0.06);
+            border-color: rgba(16, 185, 129, 0.35);
+        }
+
+        .version-tag {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .v-num {
+            font-family: "JetBrains Mono", monospace;
+            font-weight: 800;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .v-status {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: "JetBrains Mono", monospace;
+        }
+
+        .v-status.closed {
+            background: rgba(148, 163, 184, 0.15);
+            color: #94A3B8;
+        }
+
+        .v-status.active {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34D399;
+        }
+
+        .version-price {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .version-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .meta-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .meta-row code {
+            font-family: "JetBrains Mono", monospace;
+            color: var(--text-secondary);
+        }
+
+        .null-tag {
+            color: var(--emerald) !important;
+            font-weight: 700;
+        }
+
+        .key-hash {
+            color: var(--indigo) !important;
+        }
+
+        .timeline-arrow {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 0 4px;
+            gap: 4px;
+        }
+
+        .arrow-delta {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .arrow-icon {
+            color: var(--cyan);
+            font-size: 16px;
+        }
+
+        /* Two-Column Mid Section */
+        .mid-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 992px) {
+            .mid-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Status Pills */
+        .status-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .status-pill {
+            background: #0B1120;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .status-pill-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .status-pct {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .status-bar-bg {
+            height: 6px;
+            background: var(--bg-subtle);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .status-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+
+        .status-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: "JetBrains Mono", monospace;
+        }
+
+        /* Guardrail / Verification Cards */
+        .guard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .guard-item {
+            background: #0B1120;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .guard-icon-box {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+            font-weight: 900;
+        }
+
+        .guard-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .guard-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .guard-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        /* Tables */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        th {
+            background: #0B1120;
+            color: var(--text-secondary);
+            font-weight: 600;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        td {
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            color: var(--text-primary);
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .font-mono {
+            font-family: "JetBrains Mono", monospace;
+        }
+
+        .font-bold {
+            font-weight: 700;
+        }
+
+        .text-cyan {
+            color: var(--cyan);
+        }
+
+        .text-emerald {
+            color: var(--emerald);
+        }
+
+        .badge-subtle {
+            font-family: "JetBrains Mono", monospace;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .badge-ok {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34D399;
+        }
+
+        .badge-warn {
+            background: rgba(245, 158, 11, 0.15);
+            color: #FBBF24;
+        }
+
+        /* Pipeline Flow Diagram Strip */
+        .pipeline-flow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #0B1120;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px 20px;
+            gap: 8px;
+            overflow-x: auto;
+        }
+
+        .flow-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            min-width: 130px;
+        }
+
+        .flow-pill {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-highlight);
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            font-family: "JetBrains Mono", monospace;
+            color: var(--text-primary);
+            text-align: center;
+        }
+
+        .flow-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .flow-arrow {
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+
+        /* Footer */
+        .footer {
+            border-top: 1px solid var(--border-color);
+            padding-top: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 12px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .arch-summary {
+            font-family: "JetBrains Mono", monospace;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+
+    <!-- Top Navigation / Header -->
+    <header class="header">
+        <div class="brand-section">
+            <div class="brand-title-wrap">
+                <div class="brand-icon">&#x26A1;</div>
+                <div class="brand-title">OrderFlow CDC Pipeline</div>
+            </div>
+            <div class="brand-subtitle">Real-Time Event Ingestion, SCD-2 State Resolution & Dimensional Warehouse Telemetry</div>
+        </div>
+
+        <div class="header-badges">
+            <div class="badge badge-timestamp">
+                <span>&#x29D6;</span> Snapshot: 2026-09-06T19:31:12Z
+            </div>
+            <div class="badge badge-engine">
+                <span>&#x25C9;</span> DuckDB OLAP Core
+            </div>
+            <div class="badge badge-verified">
+                <div class="dot-pulse"></div>
+                <span>IDEMPOTENT & VERIFIED</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Top Level Verified KPIs -->
+    <div class="kpi-grid">
+        <div class="kpi-card" style="--card-accent: var(--cyan);">
+            <div class="kpi-label">Gross Processed Revenue</div>
+            <div class="kpi-value">$51,731.49</div>
+            <div class="kpi-subtext">Across 108 orders in fct_orders</div>
+        </div>
+
+        <div class="kpi-card" style="--card-accent: var(--emerald);">
+            <div class="kpi-label">Total Fact Orders</div>
+            <div class="kpi-value">108</div>
+            <div class="kpi-subtext">100% deduplicated & validated</div>
+        </div>
+
+        <div class="kpi-card" style="--card-accent: var(--indigo);">
+            <div class="kpi-label">Average Order Value (AOV)</div>
+            <div class="kpi-value">$479.00</div>
+            <div class="kpi-subtext">385 total units sold</div>
+        </div>
+
+        <div class="kpi-card" style="--card-accent: var(--amber);">
+            <div class="kpi-label">SCD-2 Product Versions</div>
+            <div class="kpi-value">34 Rows</div>
+            <div class="kpi-subtext">30 distinct products (4 price mutations)</div>
+        </div>
+
+        <div class="kpi-card" style="--card-accent: var(--purple);">
+            <div class="kpi-label">Warehouse Tables</div>
+            <div class="kpi-value">15 Tables</div>
+            <div class="kpi-subtext">Staging, Marts, Facts & SCD2</div>
+        </div>
+    </div>
+
+    <!-- Architectural Pipeline Flow Banner -->
+    <div class="pipeline-flow">
+        <div class="flow-node">
+            <div class="flow-pill" style="border-color: rgba(6, 182, 212, 0.4); color: var(--cyan);">SQLite OLTP</div>
+            <div class="flow-sub">Source Database</div>
+        </div>
+        <div class="flow-arrow">&#x2794;</div>
+        <div class="flow-node">
+            <div class="flow-pill" style="border-color: rgba(99, 102, 241, 0.4); color: #A5B4FC;">Debezium CDC</div>
+            <div class="flow-sub">JSONL Event Streams</div>
+        </div>
+        <div class="flow-arrow">&#x2794;</div>
+        <div class="flow-node">
+            <div class="flow-pill" style="border-color: rgba(244, 63, 94, 0.4); color: #FB7185;">Great Expectations</div>
+            <div class="flow-sub">100% Quality Quarantine</div>
+        </div>
+        <div class="flow-arrow">&#x2794;</div>
+        <div class="flow-node">
+            <div class="flow-pill" style="border-color: rgba(245, 158, 11, 0.4); color: #FBBF24;">DuckDB Lakehouse</div>
+            <div class="flow-sub">Embedded OLAP Store</div>
+        </div>
+        <div class="flow-arrow">&#x2794;</div>
+        <div class="flow-node">
+            <div class="flow-pill" style="border-color: rgba(16, 185, 129, 0.4); color: #34D399;">dbt Core Models</div>
+            <div class="flow-sub">SCD-2 Dims & Marts</div>
+        </div>
+    </div>
+
+    <!-- DISTINCTIVE PROOF POINT: SCD TYPE 2 MUTATION TIMELINE -->
+    <section class="section-box">
+        <div class="section-header">
+            <div class="section-title-wrap">
+                <span class="section-pill">SCD-2 PROOF</span>
+                <span class="section-title">Point-in-Time Slowly Changing Dimensions (SCD Type 2 Timeline)</span>
+            </div>
+            <div class="section-desc">
+                Live demonstration of price mutation handling: Old state closed (<code style="color:#94A3B8;">is_current=false</code>) & New state opened (<code style="color:#34D399;">is_current=true</code>).
+            </div>
+        </div>
+
+        <div class="scd2-grid">
+            
+        <div class="scd2-card">
+            <div class="scd2-card-header">
+                <div class="scd2-badge">PRODUCT #18</div>
+                <div class="scd2-name">Heavy-Duty Stainless Steel Chef Knife 8-inch</div>
+                <div class="scd2-category">Home & Kitchen</div>
+            </div>
+            
+            <div class="scd2-timeline">
+                <!-- Version 1 -->
+                <div class="scd2-version closed">
+                    <div class="version-tag">
+                        <span class="v-num">v1</span>
+                        <span class="v-status closed">CLOSED / HISTORICAL</span>
+                    </div>
+                    <div class="version-price">$45.00</div>
+                    <div class="version-meta">
+                        <div class="meta-row"><span>Valid From:</span> <code>2026-08-01 08:00:00</code></div>
+                        <div class="meta-row"><span>Valid To:</span> <code>2026-09-06 13:51:19</code></div>
+                        <div class="meta-row"><span>Key Hash:</span> <code class="key-hash">39eb21f52470...</code></div>
+                    </div>
+                </div>
+
+                <div class="timeline-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-delta" style="color: #34D399;">+$0.76</div>
+                    <div class="arrow-icon">➔</div>
+                </div>
+
+                <!-- Version 2 -->
+                <div class="scd2-version active">
+                    <div class="version-tag">
+                        <span class="v-num">v2</span>
+                        <span class="v-status active">ACTIVE / CURRENT</span>
+                    </div>
+                    <div class="version-price">$45.76</div>
+                    <div class="version-meta">
+                        <div class="meta-row"><span>Valid From:</span> <code>2026-09-06 13:51:19</code></div>
+                        <div class="meta-row"><span>Valid To:</span> <code class="null-tag">NULL (Present)</code></div>
+                        <div class="meta-row"><span>Key Hash:</span> <code class="key-hash">500e8415acf0...</code></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="scd2-card">
+            <div class="scd2-card-header">
+                <div class="scd2-badge">PRODUCT #20</div>
+                <div class="scd2-name">Fundamentals of Data Engineering (Paperback)</div>
+                <div class="scd2-category">Books</div>
+            </div>
+            
+            <div class="scd2-timeline">
+                <!-- Version 1 -->
+                <div class="scd2-version closed">
+                    <div class="version-tag">
+                        <span class="v-num">v1</span>
+                        <span class="v-status closed">CLOSED / HISTORICAL</span>
+                    </div>
+                    <div class="version-price">$44.50</div>
+                    <div class="version-meta">
+                        <div class="meta-row"><span>Valid From:</span> <code>2026-08-01 08:00:00</code></div>
+                        <div class="meta-row"><span>Valid To:</span> <code>2026-09-06 13:51:19</code></div>
+                        <div class="meta-row"><span>Key Hash:</span> <code class="key-hash">f6f855ff9d40...</code></div>
+                    </div>
+                </div>
+
+                <div class="timeline-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-delta" style="color: #34D399;">+$1.79</div>
+                    <div class="arrow-icon">➔</div>
+                </div>
+
+                <!-- Version 2 -->
+                <div class="scd2-version active">
+                    <div class="version-tag">
+                        <span class="v-num">v2</span>
+                        <span class="v-status active">ACTIVE / CURRENT</span>
+                    </div>
+                    <div class="version-price">$46.29</div>
+                    <div class="version-meta">
+                        <div class="meta-row"><span>Valid From:</span> <code>2026-09-06 13:51:19</code></div>
+                        <div class="meta-row"><span>Valid To:</span> <code class="null-tag">NULL (Present)</code></div>
+                        <div class="meta-row"><span>Key Hash:</span> <code class="key-hash">6de83fb24fdb...</code></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="scd2-card">
+            <div class="scd2-card-header">
+                <div class="scd2-badge">PRODUCT #21</div>
+                <div class="scd2-name">The Pragmatic Programmer: 20th Anniversary Edition</div>
+                <div class="scd2-category">Books</div>
+            </div>
+            
+            <div class="scd2-timeline">
+                <!-- Version 1 -->
+                <div class="scd2-version closed">
+                    <div class="version-tag">
+                        <span class="v-num">v1</span>
+                        <span class="v-status closed">CLOSED / HISTORICAL</span>
+                    </div>
+                    <div class="version-price">$39.95</div>
+                    <div class="version-meta">
+                        <div class="meta-row"><span>Valid From:</span> <code>2026-08-01 08:00:00</code></div>
+                        <div class="meta-row"><span>Valid To:</span> <code>2026-09-06 13:51:19</code></div>
+                        <div class="meta-row"><span>Key Hash:</span> <code class="key-hash">4555811c1176...</code></div>
+                    </div>
+                </div>
+
+                <div class="timeline-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-delta" style="color: #34D399;">+$4.77</div>
+                    <div class="arrow-icon">➔</div>
+                </div>
+
+                <!-- Version 2 -->
+                <div class="scd2-version active">
+                    <div class="version-tag">
+                        <span class="v-num">v2</span>
+                        <span class="v-status active">ACTIVE / CURRENT</span>
+                    </div>
+                    <div class="version-price">$44.72</div>
+                    <div class="version-meta">
+                        <div class="meta-row"><span>Valid From:</span> <code>2026-09-06 13:51:19</code></div>
+                        <div class="meta-row"><span>Valid To:</span> <code class="null-tag">NULL (Present)</code></div>
+                        <div class="meta-row"><span>Key Hash:</span> <code class="key-hash">7cf36f52c6cd...</code></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="scd2-card">
+            <div class="scd2-card-header">
+                <div class="scd2-badge">PRODUCT #24</div>
+                <div class="scd2-name">Building Microservices (2nd Edition)</div>
+                <div class="scd2-category">Books</div>
+            </div>
+            
+            <div class="scd2-timeline">
+                <!-- Version 1 -->
+                <div class="scd2-version closed">
+                    <div class="version-tag">
+                        <span class="v-num">v1</span>
+                        <span class="v-status closed">CLOSED / HISTORICAL</span>
+                    </div>
+                    <div class="version-price">$46.50</div>
+                    <div class="version-meta">
+                        <div class="meta-row"><span>Valid From:</span> <code>2026-08-01 08:00:00</code></div>
+                        <div class="meta-row"><span>Valid To:</span> <code>2026-09-06 13:51:19</code></div>
+                        <div class="meta-row"><span>Key Hash:</span> <code class="key-hash">20fb7cd306e0...</code></div>
+                    </div>
+                </div>
+
+                <div class="timeline-arrow">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-delta" style="color: #F87171;">$-6.45</div>
+                    <div class="arrow-icon">➔</div>
+                </div>
+
+                <!-- Version 2 -->
+                <div class="scd2-version active">
+                    <div class="version-tag">
+                        <span class="v-num">v2</span>
+                        <span class="v-status active">ACTIVE / CURRENT</span>
+                    </div>
+                    <div class="version-price">$40.05</div>
+                    <div class="version-meta">
+                        <div class="meta-row"><span>Valid From:</span> <code>2026-09-06 13:51:19</code></div>
+                        <div class="meta-row"><span>Valid To:</span> <code class="null-tag">NULL (Present)</code></div>
+                        <div class="meta-row"><span>Key Hash:</span> <code class="key-hash">6fa7277b3408...</code></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        </div>
+    </section>
+
+    <!-- Two Column Mid Section: Order Distribution & Data Reliability Shield -->
+    <div class="mid-grid">
+        <!-- Order Fulfillment Breakdown -->
+        <section class="section-box">
+            <div class="section-header">
+                <div class="section-title-wrap">
+                    <span class="section-pill">FULFILLMENT</span>
+                    <span class="section-title">Order Status & Revenue Split</span>
+                </div>
+            </div>
+            <div class="status-container">
+                
+        <div class="status-pill">
+            <div class="status-pill-header">
+                <span class="status-dot" style="background-color: #10B981;"></span>
+                <span class="status-title">Delivered</span>
+                <span class="status-pct" style="color: #10B981;">38.0%</span>
+            </div>
+            <div class="status-bar-bg">
+                <div class="status-bar-fill" style="width: 38.0%; background-color: #10B981;"></div>
+            </div>
+            <div class="status-meta">
+                <span>41 Orders</span>
+                <span>$17,076.65</span>
+            </div>
+        </div>
+        
+        <div class="status-pill">
+            <div class="status-pill-header">
+                <span class="status-dot" style="background-color: #38BDF8;"></span>
+                <span class="status-title">Pending</span>
+                <span class="status-pct" style="color: #38BDF8;">25.0%</span>
+            </div>
+            <div class="status-bar-bg">
+                <div class="status-bar-fill" style="width: 25.0%; background-color: #38BDF8;"></div>
+            </div>
+            <div class="status-meta">
+                <span>27 Orders</span>
+                <span>$13,428.32</span>
+            </div>
+        </div>
+        
+        <div class="status-pill">
+            <div class="status-pill-header">
+                <span class="status-dot" style="background-color: #818CF8;"></span>
+                <span class="status-title">Shipped</span>
+                <span class="status-pct" style="color: #818CF8;">18.5%</span>
+            </div>
+            <div class="status-bar-bg">
+                <div class="status-bar-fill" style="width: 18.5%; background-color: #818CF8;"></div>
+            </div>
+            <div class="status-meta">
+                <span>20 Orders</span>
+                <span>$9,067.84</span>
+            </div>
+        </div>
+        
+        <div class="status-pill">
+            <div class="status-pill-header">
+                <span class="status-dot" style="background-color: #F87171;"></span>
+                <span class="status-title">Cancelled</span>
+                <span class="status-pct" style="color: #F87171;">18.5%</span>
+            </div>
+            <div class="status-bar-bg">
+                <div class="status-bar-fill" style="width: 18.5%; background-color: #F87171;"></div>
+            </div>
+            <div class="status-meta">
+                <span>20 Orders</span>
+                <span>$12,158.68</span>
+            </div>
+        </div>
+        
+            </div>
+        </section>
+
+        <!-- Pipeline Reliability & Quality Guardrails -->
+        <section class="section-box">
+            <div class="section-header">
+                <div class="section-title-wrap">
+                    <span class="section-pill">RELIABILITY</span>
+                    <span class="section-title">Verified Data Quality & Idempotency</span>
+                </div>
+            </div>
+            <div class="guard-list">
+                <div class="guard-item">
+                    <div class="guard-icon-box" style="background: var(--emerald-glow); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.3);">
+                        &#x2714;
+                    </div>
+                    <div class="guard-content">
+                        <div class="guard-title">100% Pipeline Idempotency Guarantee</div>
+                        <div class="guard-desc">
+                            Re-executing the full pipeline against identical CDC inputs produced an invariant state across all marts (Row Delta = 0 rows in <code class="font-mono">fct_orders</code> and SCD-2 dimensions).
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guard-item">
+                    <div class="guard-icon-box" style="background: var(--rose-glow, rgba(244, 63, 94, 0.15)); color: #FB7185; border: 1px solid rgba(244, 63, 94, 0.3);">
+                        &#x26E8;
+                    </div>
+                    <div class="guard-content">
+                        <div class="guard-title">Great Expectations Pre-Warehouse Gatekeeper</div>
+                        <div class="guard-desc">
+                            Corrupted payloads (negative price, null customer IDs, out-of-spec status) are rejected at the staging boundary with zero dirty records entering DuckDB.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guard-item">
+                    <div class="guard-icon-box" style="background: var(--indigo-glow); color: #818CF8; border: 1px solid rgba(99, 102, 241, 0.3);">
+                        &#x2699;
+                    </div>
+                    <div class="guard-content">
+                        <div class="guard-title">Point-in-Time Fact Surrogacy</div>
+                        <div class="guard-desc">
+                            Historical orders remain permanently bound to historical dimension keys (<code class="font-mono">product_key</code>), preventing historical revenue and attribution distortion.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Daily Aggregation Performance Table -->
+    <section class="section-box">
+        <div class="section-header">
+            <div class="section-title-wrap">
+                <span class="section-pill">ANALYTICS</span>
+                <span class="section-title">Daily Sales Performance Mart (<code class="font-mono">agg_daily_sales</code>)</span>
+            </div>
+            <div class="section-desc">Aggregated metrics modeled via dbt Core on top of DuckDB facts</div>
+        </div>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Sale Date</th>
+                        <th>Orders</th>
+                        <th>Gross Revenue</th>
+                        <th>Delivered Revenue</th>
+                        <th>Delivered Orders</th>
+                        <th>Average Order Value</th>
+                        <th>Cancellation Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+        <tr>
+            <td class="font-mono text-cyan">2026-09-06</td>
+            <td class="font-bold">8</td>
+            <td class="font-mono">$3,404.94</td>
+            <td class="font-mono text-emerald">$0.00</td>
+            <td>0</td>
+            <td class="font-mono">$425.62</td>
+            <td>
+                <span class="badge-subtle badge-ok">
+                    0.0%
+                </span>
+            </td>
+        </tr>
+        
+        <tr>
+            <td class="font-mono text-cyan">2026-08-17</td>
+            <td class="font-bold">5</td>
+            <td class="font-mono">$2,583.93</td>
+            <td class="font-mono text-emerald">$773.95</td>
+            <td>2</td>
+            <td class="font-mono">$645.98</td>
+            <td>
+                <span class="badge-subtle badge-warn">
+                    20.0%
+                </span>
+            </td>
+        </tr>
+        
+        <tr>
+            <td class="font-mono text-cyan">2026-08-16</td>
+            <td class="font-bold">6</td>
+            <td class="font-mono">$2,166.93</td>
+            <td class="font-mono text-emerald">$1,212.45</td>
+            <td>3</td>
+            <td class="font-mono">$433.39</td>
+            <td>
+                <span class="badge-subtle badge-ok">
+                    16.7%
+                </span>
+            </td>
+        </tr>
+        
+        <tr>
+            <td class="font-mono text-cyan">2026-08-15</td>
+            <td class="font-bold">6</td>
+            <td class="font-mono">$1,899.95</td>
+            <td class="font-mono text-emerald">$1,123.95</td>
+            <td>2</td>
+            <td class="font-mono">$474.99</td>
+            <td>
+                <span class="badge-subtle badge-warn">
+                    33.3%
+                </span>
+            </td>
+        </tr>
+        
+        <tr>
+            <td class="font-mono text-cyan">2026-08-14</td>
+            <td class="font-bold">6</td>
+            <td class="font-mono">$2,372.42</td>
+            <td class="font-mono text-emerald">$1,324.94</td>
+            <td>2</td>
+            <td class="font-mono">$474.48</td>
+            <td>
+                <span class="badge-subtle badge-ok">
+                    16.7%
+                </span>
+            </td>
+        </tr>
+        
+        <tr>
+            <td class="font-mono text-cyan">2026-08-13</td>
+            <td class="font-bold">6</td>
+            <td class="font-mono">$1,243.46</td>
+            <td class="font-mono text-emerald">$308.48</td>
+            <td>2</td>
+            <td class="font-mono">$248.69</td>
+            <td>
+                <span class="badge-subtle badge-ok">
+                    16.7%
+                </span>
+            </td>
+        </tr>
+        
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="arch-summary">
+            Architecture: SQLite OLTP &#x2794; Debezium Event Bus &#x2794; Great Expectations Validation &#x2794; DuckDB Lakehouse &#x2794; dbt SCD-2 Core & Analytical Marts.
+        </div>
+        <div>
+            OrderFlow CDC Pipeline &bull; Automated Telemetry Snapshot
+        </div>
+    </footer>
+
+</div>
+
+</body>
+</html>
